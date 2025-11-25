@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 env:
-  AZURE_WEBAPP_NAME: ABSRuleRed
+  AZURE_WEBAPP_NAME: ABSRuleRed2
   RESOURCE_GROUP: LeiWang
   APP_SERVICE_PLAN: ASP-LeiWang-b6d2
   CONTAINER_REGISTRY: redtextextractor.azurecr.io
@@ -146,7 +146,7 @@ jobs:
         
         # Check container logs
         echo "📋 Checking recent container logs..."
-        az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --provider application --timeout 30 || true
+        az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --provider application || true
         
         # Attempt health check with detailed debugging
         echo "🩺 Starting health check attempts..."
