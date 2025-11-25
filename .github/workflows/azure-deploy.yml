@@ -16,7 +16,7 @@ permissions:
 env:
   AZURE_WEBAPP_NAME: ABSRuleRed2
   RESOURCE_GROUP: LeiWang
-  APP_SERVICE_PLAN: ASP-LeiWang-b6d2
+  APP_SERVICE_PLAN: LeiWangNew
   CONTAINER_REGISTRY: redtextextractor.azurecr.io
   IMAGE_NAME: abs-rules-extractor
 
