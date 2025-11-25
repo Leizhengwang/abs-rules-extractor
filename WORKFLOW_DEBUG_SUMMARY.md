@@ -58,6 +58,27 @@ env:
 3. 🌐 **Check Azure**: Confirm `ABSRuleRed` web app exists in `LeiWang` resource group
 4. 🏥 **Test Health Check**: Verify app deploys to https://ABSRuleRed.azurewebsites.net
 
+## **🎉 LATEST UPDATE - Health Check Issue Fixed!**
+
+### **Health Check Failure Root Cause:**
+- ❌ **Port Mismatch**: Your app runs on port 8000, but Azure expected port 80/8080
+- ❌ **No Port Configuration**: Azure Web App needed `WEBSITES_PORT=8000` setting
+
+### **Fixes Applied (Just Now!):**
+✅ **Added Port Configuration**: Set `WEBSITES_PORT=8000` in Azure Web App settings  
+✅ **Enhanced Health Check**: 15 attempts instead of 10, better diagnostics  
+✅ **Added Verification Step**: Checks if Azure Web App exists before deploying  
+✅ **Improved Logging**: Shows container logs and detailed HTTP status  
+✅ **Extended Wait Time**: 120 seconds instead of 60 for container startup  
+
+### **What This Fixes:**
+- 🔧 Tells Azure your app listens on port 8000 (not default port 80)
+- 🔍 Provides detailed diagnostics when health check fails
+- ⏳ Gives more time for your Flask app to start up
+- 📋 Shows container logs to help debug startup issues
+
+The deployment should now succeed! 🚀
+
 ## **Files Modified:**
 - ✅ Fixed: `.github/workflows/azure-deploy.yml`
 - ✅ Removed: `web_app/.github/workflows/` (entire directory)
