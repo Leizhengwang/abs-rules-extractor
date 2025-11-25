@@ -90,11 +90,30 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
         
+    - name: Verify Azure Web App exists
+      run: |
+        echo "🔍 Checking if Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists..."
+        if ! az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "❌ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' does not exist!"
+          echo "📝 Create it with:"
+          echo "az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --plan YOUR_APP_SERVICE_PLAN --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          exit 1
+        else
+          echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists"
+        fi
+        
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         images: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        
+    - name: Configure Azure Web App Port
+      run: |
+        az webapp config appsettings set \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --settings WEBSITES_PORT=8000
         
     - name: Restart Azure Web App
       run: |
@@ -104,19 +123,44 @@ jobs:
         
     - name: Health Check
       run: |
-        echo "Waiting for deployment to complete..."
-        sleep 60
+        echo "🏥 Starting comprehensive health check..."
         
-        for i in {1..10}; do
-          if curl -f -s https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/; then
-            echo "Health check passed! App is running."
+        # Check if Azure Web App exists
+        echo "🔍 Verifying Azure Web App exists..."
+        az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "name" -o tsv
+        
+        # Check Azure Web App state
+        echo "📊 Checking Azure Web App state..."
+        az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{state:state,availabilityState:availabilityState}" -o json
+        
+        # Wait for deployment to complete
+        echo "⏳ Waiting for deployment to complete..."
+        sleep 120  # Increased wait time for container startup
+        
+        # Check container logs
+        echo "📋 Checking recent container logs..."
+        az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --provider application --timeout 30 || true
+        
+        # Attempt health check with detailed debugging
+        echo "🩺 Starting health check attempts..."
+        for i in {1..15}; do  # Increased attempts
+          echo "🔄 Health check attempt $i/15..."
+          
+          if curl -f -s -w "HTTP Status: %{http_code}, Total time: %{time_total}s\n" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/; then
+            echo "✅ Health check passed! App is running successfully."
             exit 0
           else
-            echo "Health check failed, attempt $i/10"
+            echo "❌ Health check failed, attempt $i/15"
+            echo "🔍 Testing with curl -I to check headers..."
+            curl -I https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/ || true
+            echo "⏳ Waiting 30 seconds before next attempt..."
             sleep 30
           fi
         done
-        echo "Health check failed after 10 attempts"
+        
+        echo "💀 Health check failed after 15 attempts"
+        echo "🚨 Final diagnostic information:"
+        az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{state:state,availabilityState:availabilityState}" -o json
         exit 1
 
   security-scan:

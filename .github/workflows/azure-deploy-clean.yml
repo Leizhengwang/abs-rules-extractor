@@ -1,0 +1,120 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: ABSRuleRed
+  RESOURCE_GROUP: LeiWang
+  CONTAINER_REGISTRY: redtextextractor.azurecr.io
+  IMAGE_NAME: abs-rules-extractor
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    name: Build & Test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        cd web_app
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov flake8
+        
+    - name: Run linting
+      run: |
+        cd web_app
+        flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+    - name: Run tests
+      run: |
+        cd web_app
+        python -c "import app; print('App imports successfully')"
+
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    name: Build Docker Image
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v2
+      with:
+        login-server: ${{ env.CONTAINER_REGISTRY }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+        
+    - name: Build and push Docker image
+      run: |
+        cd web_app
+        docker build \
+          -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+          -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          .
+        
+        docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, build-docker]
+    name: Deploy to Production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        images: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        
+    - name: Restart Azure Web App
+      run: |
+        az webapp restart \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.RESOURCE_GROUP }}
+        
+    - name: Health Check
+      run: |
+        echo "Waiting for deployment to complete..."
+        sleep 60
+        
+        for i in {1..10}; do
+          if curl -f -s https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/; then
+            echo "Health check passed! App is running."
+            exit 0
+          else
+            echo "Health check failed, attempt $i/10"
+            sleep 30
+          fi
+        done
+        echo "Health check failed after 10 attempts"
+        exit 1
