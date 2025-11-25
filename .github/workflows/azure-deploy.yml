@@ -1,4 +1,8 @@
-# ============================================================================
+# ===================env:
+  # 📝 IMPORTANT: These values match your Azure resources
+  AZURE_WEBAPP_NAME: ABSRuleRed                       # 🌐 Your Azure Web App name (must be globally unique!)
+  RESOURCE_GROUP: LeiWang                             # 📁 Your Azure Resource Group name  
+  CONTAINER_REGISTRY: redtextextractor.azurecr.io     # 🐳 Your Azure Container Registry URL====================================================
 # 🚀 AZURE CI/CD DEPLOYMENT PIPELINE
 # ============================================================================
 # This file handles EVERYTHING for Azure deployment automatically!
@@ -21,7 +25,7 @@ on:
 # ============================================================================
 env:
   # 📝 IMPORTANT: These values match your Azure resources
-  AZURE_WEBAPP_NAME: abs-rules-extractor-lw2024       # 🌐 Your Azure Web App name (must be globally unique!)
+  AZURE_WEBAPP_NAME: ABSRuleRed      # 🌐 Your Azure Web App name (must be globally unique!)
   RESOURCE_GROUP: LeiWang                             # 📁 Your Azure Resource Group name  
   CONTAINER_REGISTRY: redtextextractor.azurecr.io     # 🐳 Your Azure Container Registry URL
   IMAGE_NAME: abs-rules-extractor                     # 🖼️  Your Docker image name
