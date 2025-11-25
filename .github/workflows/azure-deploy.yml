@@ -16,6 +16,7 @@ permissions:
 env:
   AZURE_WEBAPP_NAME: ABSRuleRed
   RESOURCE_GROUP: LeiWang
+  APP_SERVICE_PLAN: ASP-LeiWang-b6d2
   CONTAINER_REGISTRY: redtextextractor.azurecr.io
   IMAGE_NAME: abs-rules-extractor
 
@@ -102,7 +103,7 @@ jobs:
         if ! az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
           echo "❌ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' does not exist!"
           echo "📝 Create it with:"
-          echo "az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --plan YOUR_APP_SERVICE_PLAN --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo "az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --plan ${{ env.APP_SERVICE_PLAN }} --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           exit 1
         else
           echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists"
