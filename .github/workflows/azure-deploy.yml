@@ -239,3 +239,4 @@ jobs:
         EOF
         
         k6 run performance-test.js
+# Updated webapp name to ABSRuleRed2
