@@ -1,0 +1,64 @@
+{
+    "folders": [
+        {
+            "name": "ABS Rules Red Text Extractor",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "./venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "files.exclude": {
+            "**/.git": true,
+            "**/.DS_Store": true,
+            "**/node_modules": true,
+            "**/__pycache__": true,
+            "**/*.pyc": true,
+            "**/venv": false
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.debugpy",
+            "ms-vscode.vscode-docker",
+            "ms-python.flake8",
+            "ms-python.black-formatter",
+            "redhat.vscode-yaml",
+            "bradlc.vscode-tailwindcss",
+            "ms-vscode.vscode-json"
+        ]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "name": "🚀 Quick Deploy",
+                "type": "node",
+                "request": "launch",
+                "program": "${workspaceFolder}/deploy.sh",
+                "console": "integratedTerminal",
+                "preLaunchTask": "🚀 Deploy ABS Rules App"
+            }
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "🔧 Setup Development Environment",
+                "type": "shell",
+                "command": "python",
+                "args": ["-m", "venv", "venv", "&&", "source", "venv/bin/activate", "&&", "pip", "install", "-r", "requirements.txt"],
+                "group": "build",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "new"
+                },
+                "detail": "Create virtual environment and install dependencies"
+            }
+        ]
+    }
+}
