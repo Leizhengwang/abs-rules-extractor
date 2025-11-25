@@ -5,9 +5,9 @@
 ### 🔍 **Possible Causes & Solutions:**
 
 #### **1. Azure Web App Name Conflict** 
-**Issue**: `abs-rules-extractor-lw2024` might not be available
+**Issue**: `ABSRuleRed` might not be available
 - **Check**: Go to Azure Portal → App Services → Create → check if the name is available
-- **Fix**: Use a more unique name like `abs-rules-extractor-[YOUR_INITIALS]-[DATE]`
+- **Fix**: Use a more unique name like `ABSRuleRed-[YOUR_INITIALS]-[DATE]`
 
 #### **2. Incorrect Azure Credentials**
 **Issue**: `AZURE_CREDENTIALS` GitHub secret is wrong/expired
@@ -44,12 +44,12 @@ az login
 az acr login --name redtextextractor
 
 # Test web app exists
-az webapp show --name abs-rules-extractor-lw2024 --resource-group LeiWang
+az webapp show --name ABSRuleRed --resource-group LeiWang
 ```
 
 ### 📊 **Current Configuration:**
-- **Web App Name**: `abs-rules-extractor-lw2024`
-- **URL**: https://abs-rules-extractor-lw2024.azurewebsites.net
+- **Web App Name**: `ABSRuleRed`
+- **URL**: https://ABSRuleRed.azurewebsites.net
 - **Resource Group**: `LeiWang`
 - **Container Registry**: `redtextextractor.azurecr.io`
 - **Image**: `abs-rules-extractor`
