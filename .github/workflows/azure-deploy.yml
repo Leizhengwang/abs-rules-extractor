@@ -21,7 +21,7 @@ on:
 # ============================================================================
 env:
   # 📝 IMPORTANT: These values match your Azure resources
-  AZURE_WEBAPP_NAME: absrulesextractor                # 🌐 Your Azure Web App name
+  AZURE_WEBAPP_NAME: abs-rules-extractor-lw2024       # 🌐 Your Azure Web App name (must be globally unique!)
   RESOURCE_GROUP: LeiWang                             # 📁 Your Azure Resource Group name  
   CONTAINER_REGISTRY: redtextextractor.azurecr.io     # 🐳 Your Azure Container Registry URL
   IMAGE_NAME: abs-rules-extractor                     # 🖼️  Your Docker image name
