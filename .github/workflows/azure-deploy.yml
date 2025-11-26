@@ -7,7 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# Add permissions for security scanning
 permissions:
   contents: read
   security-events: write
@@ -24,29 +23,31 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     name: Build & Test
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('web_app/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-        
     - name: Install dependencies
       run: |
         cd web_app
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov flake8
-        
     - name: Run linting
       run: |
         cd web_app
         flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        
     - name: Run tests
       run: |
         cd web_app
@@ -56,18 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     name: Build Docker Image
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v2
       with:
         login-server: ${{ env.CONTAINER_REGISTRY }}
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
-        
     - name: Build and push Docker image
       run: |
         cd web_app
@@ -75,7 +71,6 @@ jobs:
           -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
           -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
           .
-        
         docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
@@ -87,16 +82,11 @@ jobs:
     environment:
       name: production
       url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
     - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-        
     - name: Verify Azure Web App exists
       run: |
         echo "🔍 Checking if Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists..."
@@ -108,65 +98,41 @@ jobs:
         else
           echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists"
         fi
-        
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         images: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-        
     - name: Configure Azure Web App Port
       run: |
         az webapp config appsettings set \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --resource-group ${{ env.RESOURCE_GROUP }} \
           --settings WEBSITES_PORT=8000
-        
     - name: Restart Azure Web App
       run: |
         az webapp restart \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --resource-group ${{ env.RESOURCE_GROUP }}
-        
     - name: Health Check
       run: |
-        echo "🏥 Starting comprehensive health check..."
-        
-        # Check if Azure Web App exists
-        echo "🔍 Verifying Azure Web App exists..."
+        echo "🏥 Starting quick health check..."
         az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "name" -o tsv
-        
-        # Check Azure Web App state
-        echo "📊 Checking Azure Web App state..."
         az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{state:state,availabilityState:availabilityState}" -o json
-        
-        # Wait for deployment to complete
-        echo "⏳ Waiting for deployment to complete..."
-        sleep 120  # Increased wait time for container startup
-        
-        # Check container logs
-        echo "📋 Checking recent container logs..."
-        az webapp log tail --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --provider application || true
-        
-        # Attempt health check with detailed debugging
-        echo "🩺 Starting health check attempts..."
-        for i in {1..15}; do  # Increased attempts
-          echo "🔄 Health check attempt $i/15..."
-          
+        sleep 30  # Reduced wait time
+        echo "🩺 Health check attempts..."
+        for i in {1..5}; do  # Fewer attempts
+          echo "🔄 Health check attempt $i/5..."
           if curl -f -s -w "HTTP Status: %{http_code}, Total time: %{time_total}s\n" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/; then
             echo "✅ Health check passed! App is running successfully."
             exit 0
           else
-            echo "❌ Health check failed, attempt $i/15"
-            echo "🔍 Testing with curl -I to check headers..."
+            echo "❌ Health check failed, attempt $i/5"
             curl -I https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/ || true
-            echo "⏳ Waiting 30 seconds before next attempt..."
-            sleep 30
+            sleep 10
           fi
         done
-        
-        echo "💀 Health check failed after 15 attempts"
-        echo "🚨 Final diagnostic information:"
+        echo "💀 Health check failed after 5 attempts"
         az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{state:state,availabilityState:availabilityState}" -o json
         exit 1
 
@@ -175,28 +141,22 @@ jobs:
     needs: build-docker
     name: Security Scan
     if: github.event_name == 'push'
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v2
       with:
         login-server: ${{ env.CONTAINER_REGISTRY }}
         username: ${{ secrets.ACR_USERNAME }}
         password: ${{ secrets.ACR_PASSWORD }}
-      
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@0.16.1
       with:
         image-ref: ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         format: 'sarif'
         output: 'trivy-results.sarif'
-        severity: 'CRITICAL,HIGH,MEDIUM'  # Focus on important vulnerabilities
-        
+        severity: 'CRITICAL,HIGH,MEDIUM'
     - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -207,28 +167,21 @@ jobs:
     needs: deploy-production
     name: Performance Test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
     - name: Run performance tests
       run: |
         curl -s https://github.com/grafana/k6/releases/download/v0.46.0/k6-v0.46.0-linux-amd64.tar.gz | tar xz
         sudo mv k6-v0.46.0-linux-amd64/k6 /usr/local/bin/
-        
         cat > performance-test.js << 'EOF'
         import http from 'k6/http';
         import { check } from 'k6';
-        
         export let options = {
           stages: [
-            { duration: '1m', target: 5 },
-            { duration: '2m', target: 10 },
-            { duration: '1m', target: 0 },
+            { duration: '10s', target: 5 },
+            { duration: '20s', target: 10 },
+            { duration: '10s', target: 0 },
           ],
         };
-        
         export default function() {
           let response = http.get('https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/');
           check(response, {
@@ -237,6 +190,4 @@ jobs:
           });
         }
         EOF
-        
         k6 run performance-test.js
-# Updated webapp name to ABSRuleRed2
