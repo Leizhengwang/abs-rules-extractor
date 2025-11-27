@@ -39,19 +39,16 @@ jobs:
         python-version: '3.9'
     - name: Install dependencies
       run: |
-        cd web_app
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r web_app/requirements.txt
         pip install pytest pytest-cov flake8
     - name: Run linting
       run: |
-        cd web_app
-        flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 web_app/app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 web_app/app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run tests
       run: |
-        cd web_app
-        python -c "import app; print('App imports successfully')"
+        python -c "import web_app.app; print('App imports successfully')"
 
   build-docker:
     runs-on: ubuntu-latest
@@ -66,11 +63,10 @@ jobs:
         password: ${{ secrets.ACR_PASSWORD }}
     - name: Build and push Docker image
       run: |
-        cd web_app
         docker build \
           -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
           -t ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-          .
+          web_app
         docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         docker push ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
