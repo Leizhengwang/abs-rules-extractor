@@ -85,14 +85,18 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    - name: Verify Azure Web App exists
+    - name: Verify or Create Azure Web App
       run: |
         echo "🔍 Checking if Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists..."
         if ! az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
           echo "❌ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' does not exist!"
-          echo "📝 Create it with:"
-          echo "az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --plan ${{ env.APP_SERVICE_PLAN }} --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          exit 1
+          echo "🏗️  Creating Azure Web App..."
+          az webapp create \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --plan ${{ env.APP_SERVICE_PLAN }} \
+            --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          echo "✅ Azure Web App created successfully!"
         else
           echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists"
         fi
