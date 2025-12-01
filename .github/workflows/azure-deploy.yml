@@ -48,13 +48,15 @@ jobs:
         flake8 web_app/app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run tests
       run: |
-        python -c "import web_app.app; print('App imports successfully')"
+        cd web_app && python -c "import app; print('App imports successfully')"
 
   build-docker:
     runs-on: ubuntu-latest
     needs: build-and-test
     name: Build Docker Image
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Login to Azure Container Registry
       uses: azure/docker-login@v2
       with:
