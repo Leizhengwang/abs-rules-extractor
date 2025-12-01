@@ -88,6 +88,11 @@ jobs:
     - name: Verify or Create Azure Web App
       run: |
         echo "🔍 Checking if Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists..."
+        
+        # List all webapps to debug
+        echo "📋 Current webapps in resource group:"
+        az webapp list --resource-group ${{ env.RESOURCE_GROUP }} --query "[].name" -o tsv || echo "No webapps found or error listing"
+        
         if ! az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
           echo "❌ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' does not exist!"
           echo "🏗️  Creating Azure Web App..."
@@ -97,8 +102,13 @@ jobs:
             --plan ${{ env.APP_SERVICE_PLAN }} \
             --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           echo "✅ Azure Web App created successfully!"
+          
+          # Verify it was created
+          echo "🔍 Verifying creation..."
+          az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{name:name,state:state,hostNames:hostNames}" -o json
         else
-          echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists"
+          echo "✅ Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' already exists"
+          az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{name:name,state:state,hostNames:hostNames}" -o json
         fi
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
