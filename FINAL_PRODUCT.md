@@ -4,7 +4,7 @@
 
 ### **Production URL:**
 ```
-https://absrulered2-d7hcgtadawaqaren.centralus-01.azurewebsites.net/
+https://absrulered2.azurewebsites.net
 ```
 
 **Status:** ✅ **LIVE and RUNNING**
@@ -140,7 +140,7 @@ Every code push to GitHub `main` branch triggers:
 ## 🎨 **User Experience**
 
 ### **Step 1: Visit the Website**
-User navigates to: `https://absrulered2-d7hcgtadawaqaren.centralus-01.azurewebsites.net/`
+User navigates to: `https://absrulered2.azurewebsites.net`
 
 ### **Step 2: Upload PDF**
 ```
@@ -317,7 +317,7 @@ git push origin main
 ## 🎓 **How to Use**
 
 ### **For End Users:**
-1. Visit: `https://absrulered2-d7hcgtadawaqaren.centralus-01.azurewebsites.net/`
+1. Visit: `https://absrulered2.azurewebsites.net`
 2. Click "Choose File" and select an ABS rules PDF
 3. Click "Upload and Process"
 4. Wait for processing to complete
@@ -377,9 +377,9 @@ You now have a **fully automated, production-ready web application** deployed on
 - 🏥 Health monitoring
 
 **Your app is live at:**
-### **https://absrulered2-d7hcgtadawaqaren.centralus-01.azurewebsites.net/**
+### **https://absrulered2.azurewebsites.net**
 
 ---
 
-*Last Updated: December 1, 2025*  
+*Last Updated: December 2, 2025*  
 *Status: ✅ LIVE AND OPERATIONAL*
