@@ -128,8 +128,8 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --docker-custom-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             --docker-registry-server-url https://${{ env.CONTAINER_REGISTRY }} \
-            --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
-            --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
+            --docker-registry-server-user "${{ secrets.ACR_USERNAME }}" \
+            --docker-registry-server-password "${{ secrets.ACR_PASSWORD }}"
           
           # Verify it was created
           echo "🔍 Verifying creation..."
