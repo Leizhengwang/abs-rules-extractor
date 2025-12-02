@@ -85,6 +85,24 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Verify or Create App Service Plan
+      run: |
+        echo "🔍 Checking if App Service Plan '${{ env.APP_SERVICE_PLAN }}' exists..."
+        
+        if ! az appservice plan show --name ${{ env.APP_SERVICE_PLAN }} --resource-group ${{ env.RESOURCE_GROUP }} > /dev/null 2>&1; then
+          echo "❌ App Service Plan '${{ env.APP_SERVICE_PLAN }}' does not exist!"
+          echo "🏗️  Creating App Service Plan (F1 Free tier)..."
+          az appservice plan create \
+            --name ${{ env.APP_SERVICE_PLAN }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --sku F1 \
+            --is-linux
+          echo "✅ App Service Plan created successfully!"
+        else
+          echo "✅ App Service Plan '${{ env.APP_SERVICE_PLAN }}' already exists"
+          az appservice plan show --name ${{ env.APP_SERVICE_PLAN }} --resource-group ${{ env.RESOURCE_GROUP }} --query "{name:name,sku:sku.name,kind:kind}" -o json
+        fi
+    
     - name: Verify or Create Azure Web App
       run: |
         echo "🔍 Checking if Azure Web App '${{ env.AZURE_WEBAPP_NAME }}' exists..."
@@ -102,6 +120,16 @@ jobs:
             --plan ${{ env.APP_SERVICE_PLAN }} \
             --deployment-container-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           echo "✅ Azure Web App created successfully!"
+          
+          # Configure container settings
+          echo "🔧 Configuring container registry..."
+          az webapp config container set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --docker-custom-image-name ${{ env.CONTAINER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --docker-registry-server-url https://${{ env.CONTAINER_REGISTRY }} \
+            --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
+            --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
           
           # Verify it was created
           echo "🔍 Verifying creation..."
