@@ -4,7 +4,7 @@ Complete step-by-step guide for deploying the ABS Rules Red Text Extractor to Az
 
 ## 🎯 **Key Point: One-Time Setup vs. Ongoing Deployments**
 
-**✅ Initial Setup (ONE TIME):**
+**  ✅ Initial Setup (ONE TIME):**
 - Azure resources setup (using Azure CLI commands below)
 - GitHub secrets configuration
 - Repository setup
@@ -96,13 +96,19 @@ az appservice plan create \
 
 ### Step 5: Create Azure Web App
 ```bash
-# Create Web App with container deployment
+# ⚠️  AUTOMATED - This is done automatically by GitHub Actions!
+# The workflow will create the web app if it doesn't exist.
+# You DO NOT need to run this command manually.
+
+# If you want to create it manually for testing:
 az webapp create \
   --resource-group rg-abs-rules-extractor \
   --plan asp-abs-rules \
   --name abs-rules-extractor-app \
   --deployment-container-image-name absrulesregistry.azurecr.io/abs-rules-extractor:latest
 ```
+
+**Note:** The GitHub Actions workflow automatically creates the Azure Web App if it doesn't exist, so this step is optional.
 
 ### Step 6: Configure Web App Settings
 ```bash

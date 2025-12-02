@@ -2,6 +2,8 @@ import os
 import io
 import uuid
 import zipfile
+import time
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 import fitz  # PyMuPDF
@@ -13,11 +15,21 @@ from io import BytesIO
 import hashlib
 import json
 
+# Try to import psutil for detailed health checks, but make it optional
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'output'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+
+# Track app start time for uptime monitoring
+APP_START_TIME = time.time()
 
 # Ensure upload and output directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -364,6 +376,182 @@ def get_status(job_id):
         'status': 'completed' if files_in_output else 'processing',
         'files_count': len(files_in_output)
     })
+
+# ============================================================================
+# HEALTH MONITORING ENDPOINTS
+# ============================================================================
+
+@app.route('/health')
+def health_check():
+    """Basic health check endpoint for Azure health checks"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'uptime_seconds': int(time.time() - APP_START_TIME),
+        'service': 'ABS Rules Red Text Extractor'
+    }), 200
+
+@app.route('/health/liveness')
+def liveness_check():
+    """Kubernetes-style liveness probe - is the app alive?"""
+    return jsonify({
+        'status': 'alive',
+        'timestamp': datetime.utcnow().isoformat()
+    }), 200
+
+@app.route('/health/readiness')
+def readiness_check():
+    """Kubernetes-style readiness probe - is the app ready to serve requests?"""
+    try:
+        # Check if required directories exist and are writable
+        upload_ready = os.path.exists(app.config['UPLOAD_FOLDER']) and os.access(app.config['UPLOAD_FOLDER'], os.W_OK)
+        output_ready = os.path.exists(app.config['OUTPUT_FOLDER']) and os.access(app.config['OUTPUT_FOLDER'], os.W_OK)
+        
+        if upload_ready and output_ready:
+            return jsonify({
+                'status': 'ready',
+                'timestamp': datetime.utcnow().isoformat(),
+                'upload_folder': app.config['UPLOAD_FOLDER'],
+                'output_folder': app.config['OUTPUT_FOLDER']
+            }), 200
+        else:
+            return jsonify({
+                'status': 'not_ready',
+                'upload_folder_ready': upload_ready,
+                'output_folder_ready': output_ready,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 503
+
+@app.route('/health/detailed')
+def detailed_health_check():
+    """Detailed health check with system metrics (if psutil is available)"""
+    try:
+        health_data = {
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'uptime_seconds': int(time.time() - APP_START_TIME),
+            'service': 'ABS Rules Red Text Extractor',
+            'version': '2.0',
+            'application': {
+                'upload_folder': app.config['UPLOAD_FOLDER'],
+                'upload_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
+                'output_folder': app.config['OUTPUT_FOLDER'],
+                'output_folder_exists': os.path.exists(app.config['OUTPUT_FOLDER']),
+                'max_content_length_mb': app.config['MAX_CONTENT_LENGTH'] / (1024 * 1024)
+            }
+        }
+        
+        # Add system metrics if psutil is available
+        if PSUTIL_AVAILABLE:
+            try:
+                cpu_percent = psutil.cpu_percent(interval=0.1)
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
+                
+                health_data['system'] = {
+                    'cpu_percent': round(cpu_percent, 2),
+                    'memory_percent': round(memory.percent, 2),
+                    'memory_available_mb': round(memory.available / (1024 * 1024), 2),
+                    'memory_total_mb': round(memory.total / (1024 * 1024), 2),
+                    'disk_percent': round(disk.percent, 2),
+                    'disk_free_gb': round(disk.free / (1024 * 1024 * 1024), 2),
+                    'disk_total_gb': round(disk.total / (1024 * 1024 * 1024), 2)
+                }
+                
+                # Determine if system is healthy based on thresholds
+                is_healthy = (
+                    cpu_percent < 90 and 
+                    memory.percent < 90 and 
+                    disk.percent < 90 and
+                    health_data['application']['upload_folder_exists'] and 
+                    health_data['application']['output_folder_exists']
+                )
+                
+                health_data['status'] = 'healthy' if is_healthy else 'degraded'
+                status_code = 200 if is_healthy else 503
+                
+            except Exception as e:
+                health_data['system'] = {'error': f'Failed to get system metrics: {str(e)}'}
+                status_code = 200  # Still return 200 for app health even if system metrics fail
+        else:
+            health_data['system'] = {
+                'note': 'Install psutil for detailed system metrics: pip install psutil'
+            }
+            status_code = 200
+        
+        return jsonify(health_data), status_code
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 503
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus-style metrics endpoint"""
+    try:
+        # Count files in upload and output folders
+        upload_files = len([f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))])
+        output_files = len([f for f in os.listdir(app.config['OUTPUT_FOLDER']) if os.path.isfile(os.path.join(app.config['OUTPUT_FOLDER'], f))])
+        
+        uptime = int(time.time() - APP_START_TIME)
+        
+        metrics_text = f"""# HELP app_uptime_seconds Application uptime in seconds
+# TYPE app_uptime_seconds counter
+app_uptime_seconds {uptime}
+
+# HELP app_upload_files_total Total number of files in upload folder
+# TYPE app_upload_files_total gauge
+app_upload_files_total {upload_files}
+
+# HELP app_output_files_total Total number of files in output folder
+# TYPE app_output_files_total gauge
+app_output_files_total {output_files}
+"""
+        
+        if PSUTIL_AVAILABLE:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            metrics_text += f"""
+# HELP system_cpu_percent CPU usage percentage
+# TYPE system_cpu_percent gauge
+system_cpu_percent {cpu_percent}
+
+# HELP system_memory_percent Memory usage percentage
+# TYPE system_memory_percent gauge
+system_memory_percent {memory.percent}
+
+# HELP system_memory_available_bytes Available memory in bytes
+# TYPE system_memory_available_bytes gauge
+system_memory_available_bytes {memory.available}
+
+# HELP system_disk_percent Disk usage percentage
+# TYPE system_disk_percent gauge
+system_disk_percent {disk.percent}
+
+# HELP system_disk_free_bytes Free disk space in bytes
+# TYPE system_disk_free_bytes gauge
+system_disk_free_bytes {disk.free}
+"""
+        
+        return metrics_text, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+        
+    except Exception as e:
+        return f"# Error generating metrics: {str(e)}", 500, {'Content-Type': 'text/plain; charset=utf-8'}
+
+# ============================================================================
+# END HEALTH MONITORING ENDPOINTS
+# ============================================================================
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
